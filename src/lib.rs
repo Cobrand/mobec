@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-pub trait Component<E: Sized + 'static> {
+pub trait Component<E: Sized>: 'static {
     fn set(self, entity: &mut E);
 
     fn get(entity: &E) -> Option<&Self>;
@@ -17,11 +17,14 @@ pub trait Component<E: Sized + 'static> {
     fn update<O, F: FnOnce(&mut Self) -> O>(entity: &mut E, f: F) -> Option<O>;
 }
 
+#[macro_export]
 macro_rules! define_entity {
     (
         $( $propname:ident : $propt:path),* ;
         $( $name:ident => $t:path),* $(,)*
     ) => {
+        use std::any::TypeId;
+
         #[derive(Debug)]
         pub struct Entity {
             $(
@@ -99,15 +102,14 @@ macro_rules! define_entity {
     }
 }
 
-#[derive(Debug)]
-pub struct A {}
-#[derive(Debug)]
-pub struct A2 {}
-#[derive(Debug)]
-pub struct B {}
-
-define_entity!{ a: A, a2: A2;
-    b => B,
+pub enum ChangeComponent<C> {
+    /// Do not change the given component
+    NoChange,
+    /// Replace the given component by a new one. Works even if there was no component to begin with.
+    Replace(C),
+    Mutate(Box<dyn FnOnce(&mut C)>),
+    /// Remove the component without adding a new one.
+    Remove,
 }
 
 pub trait EntityBase: Sized + 'static {
@@ -122,18 +124,49 @@ pub trait EntityBase: Sized + 'static {
     fn for_all_components(f: impl FnMut(TypeId));
 
     #[inline]
+    /// Returns the ntity with the specified component. The old component is discarded.
     fn with<C: Component<Self>>(mut self, component: C) -> Self {
         component.set(&mut self);
         self
     }
 
     #[inline]
+    /// Mutates the component for the given entity.
+    ///
+    /// Mutations only apply to inner changes, not removal or creation of components. The predicate
+    /// is only called if the component exists for the given entity to begin with.
     fn with_mutation<C: Component<Self>, F: FnOnce(&mut C)>(mut self, f: F) -> Self {
         self.mutate(f);
         self
     }
 
     #[inline]
+    /// Removes the given component for the given entity.
+    ///
+    /// Mutations only apply to inner changes, not removal or creation of components. The predicate
+    /// is only called if the component exists for the given entity to begin with.
+    fn with_removed<C: Component<Self>>(mut self) -> Self {
+        self.remove::<C>();
+        self
+    }
+
+    #[inline]
+    fn with_component_change<'a, C: Component<Self>, F: FnOnce(&mut Self) -> ChangeComponent<C>>(mut self, f: F) -> Self {
+        match f(&mut self) {
+            ChangeComponent::NoChange => self,
+            ChangeComponent::Remove => self.with_removed::<C>(),
+            ChangeComponent::Replace(c) => self.with(c),
+            ChangeComponent::Mutate(f) => {
+                if let Some(c) = self.get_mut::<C>() {
+                    f(c)
+                };
+                self
+            },
+        }
+    }
+
+    #[inline]
+    /// Peek the properties of the given component type, for the given entity, using the given predicate.
     fn peek<C: Component<Self>, F: FnOnce(&C)>(&self, f: F) {
         if let Some(r) = self.get::<C>() {
             f(r)
@@ -141,6 +174,7 @@ pub trait EntityBase: Sized + 'static {
     }
 
     #[inline]
+    /// Mutate the properties of the given component type, for the given entity, using the given predicate.
     fn mutate<C: Component<Self>, F: FnOnce(&mut C)>(&mut self, f: F) {
         if let Some(r) = self.get_mut::<C>() {
             f(r)
@@ -148,6 +182,7 @@ pub trait EntityBase: Sized + 'static {
     }
 
     #[inline]
+    /// Returns true if the entity has the requested component type as an active component.
     fn has<C: Component<Self>>(&self) -> bool {
         C::get(self).is_some()
     }
@@ -163,6 +198,9 @@ pub trait EntityBase: Sized + 'static {
     }
 
     #[inline]
+    /// Remove a component from the given entity.
+    ///
+    /// If the entity had the requested component, it is returned.
     fn remove<C: Component<Self>>(&mut self) -> Option<Box<C>> {
         C::remove(self)
     }
