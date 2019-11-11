@@ -1,22 +1,20 @@
 use std::any::TypeId;
 
-pub trait Component {
-    type Entity: Sized + 'static;
+pub trait Component<E: Sized + 'static> {
+    fn set(self, entity: &mut E);
 
-    fn set(self, entity: &mut Self::Entity);
+    fn get(entity: &E) -> Option<&Self>;
 
-    fn get(entity: &Self::Entity) -> Option<&Self>;
-
-    fn get_mut(entity: &mut Self::Entity) -> Option<&mut Self>;
+    fn get_mut(entity: &mut E) -> Option<&mut Self>;
 
     /// Delete a component from an entity
-    fn remove(entity: &mut Self::Entity) -> Option<Box<Self>>;
+    fn remove(entity: &mut E) -> Option<Box<Self>>;
     
     // read a component with the given predicate. You may return a custom result of your choice.
-    fn peek<O, F: FnOnce(&Self) -> O>(entity: &Entity, f: F) -> Option<O>;
+    fn peek<O, F: FnOnce(&Self) -> O>(entity: &E, f: F) -> Option<O>;
 
     // update component with the given predicate. You may return a custom result of your choice.
-    fn update<O, F: FnOnce(&mut Self) -> O>(entity: &mut Entity, f: F) -> Option<O>;
+    fn update<O, F: FnOnce(&mut Self) -> O>(entity: &mut E, f: F) -> Option<O>;
 }
 
 macro_rules! define_entity {
@@ -35,8 +33,7 @@ macro_rules! define_entity {
         }
 
         $(
-            impl Component for $t {
-                type Entity = Entity;
+            impl Component<Entity> for $t {
                 #[inline]
                 fn set(self, entity: &mut Entity) {
                     entity.$name = Some(Box::new(self))
@@ -123,50 +120,50 @@ pub trait EntityBase: Sized + 'static {
 
     // Go through all possible components this kind of entity might have.
     fn for_all_components(f: impl FnMut(TypeId));
+
+    #[inline]
+    fn with<C: Component<Self>>(mut self, component: C) -> Self {
+        component.set(&mut self);
+        self
+    }
+
+    #[inline]
+    fn with_mutation<C: Component<Self>, F: FnOnce(&mut C)>(mut self, f: F) -> Self {
+        self.mutate(f);
+        self
+    }
+
+    #[inline]
+    fn peek<C: Component<Self>, F: FnOnce(&C)>(&self, f: F) {
+        if let Some(r) = self.get::<C>() {
+            f(r)
+        }
+    }
+
+    #[inline]
+    fn mutate<C: Component<Self>, F: FnOnce(&mut C)>(&mut self, f: F) {
+        if let Some(r) = self.get_mut::<C>() {
+            f(r)
+        }
+    }
+
+    #[inline]
+    fn has<C: Component<Self>>(&self) -> bool {
+        C::get(self).is_some()
+    }
+
+    #[inline]
+    fn get<C: Component<Self>>(&self) -> Option<&C> {
+        C::get(self)
+    }
+
+    #[inline]
+    fn get_mut<C: Component<Self>>(&mut self) -> Option<&mut C> {
+        C::get_mut(self)
+    }
+
+    #[inline]
+    fn remove<C: Component<Self>>(&mut self) -> Option<Box<C>> {
+        C::remove(self)
+    }
 }
-//     #[inline]
-//     fn with<C: Component>(mut self, component: C) -> Self where C::Entity = Self {
-//         component.set(&mut self);
-//         self
-//     }
-
-//     #[inline]
-//     fn with_mutation<C: Component, F: FnOnce(&mut C)>(mut self, f: F) -> Self {
-//         self.mutate(f);
-//         self
-//     }
-
-//     #[inline]
-//     fn peek<C: Component, F: FnOnce(&C)>(&self, f: F) {
-//         if let Some(r) = self.get::<C>() {
-//             f(r)
-//         }
-//     }
-
-//     #[inline]
-//     fn mutate<C: Component, F: FnOnce(&mut C)>(&mut self, f: F) {
-//         if let Some(r) = self.get_mut::<C>() {
-//             f(r)
-//         }
-//     }
-
-//     #[inline]
-//     fn has<C: Component>(&self) -> bool {
-//         C::get(self).is_some()
-//     }
-
-//     #[inline]
-//     fn get<C: Component>(&self) -> Option<&C> {
-//         C::get(self)
-//     }
-
-//     #[inline]
-//     fn get_mut<C: Component>(&mut self) -> Option<&mut C> {
-//         C::get_mut(self)
-//     }
-
-//     #[inline]
-//     fn remove<C: Component>(&mut self) -> Option<Box<C>> {
-//         C::remove(self)
-//     }
-// }
