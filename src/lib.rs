@@ -107,6 +107,7 @@ pub enum ChangeComponent<C> {
     NoChange,
     /// Replace the given component by a new one. Works even if there was no component to begin with.
     Replace(C),
+    /// Mutate the currently available component. Only works if there is a component to begin with.
     Mutate(Box<dyn FnOnce(&mut C)>),
     /// Remove the component without adding a new one.
     Remove,
