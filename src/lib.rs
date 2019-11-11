@@ -17,13 +17,13 @@ pub trait Component<E: Sized>: 'static {
     fn update<O, F: FnOnce(&mut Self) -> O>(entity: &mut E, f: F) -> Option<O>;
 }
 
+/// Macro to create an `Entity` type where this is called.
 #[macro_export]
 macro_rules! define_entity {
     (
         $( $propname:ident : $propt:path),* ;
         $( $name:ident => $t:path),* $(,)*
     ) => {
-        use std::any::TypeId;
 
         #[derive(Debug)]
         pub struct Entity {
@@ -36,7 +36,7 @@ macro_rules! define_entity {
         }
 
         $(
-            impl Component<Entity> for $t {
+            impl rubyec::Component<Entity> for $t {
                 #[inline]
                 fn set(self, entity: &mut Entity) {
                     entity.$name = Some(Box::new(self))
@@ -69,7 +69,7 @@ macro_rules! define_entity {
             }
         )*
 
-        impl EntityBase for Entity {
+        impl rubyec::EntityBase for Entity {
             type CreationParams = ( $( $propt ),* );
 
             fn new( ( $( $propname ),* ) : ( $( $propt ),*) ) -> Self {
@@ -83,17 +83,17 @@ macro_rules! define_entity {
                 }
             }
 
-            fn for_each_active_component(&self, mut f: impl FnMut(TypeId)) {
+            fn for_each_active_component(&self, mut f: impl FnMut(std::any::TypeId)) {
                 $(
                     if let Some(_p) = &self.$name {
-                        f(TypeId::of::< $t >())
+                        f(std::any::TypeId::of::< $t >())
                     };
                 )*
             }
 
-            fn for_all_components(mut f: impl FnMut(TypeId)) {
+            fn for_all_components(mut f: impl FnMut(std::any::TypeId)) {
                 // todo, replace this by const once TypeId::of is a const fn
-                let components_type_ids: &[TypeId] = &[$( TypeId::of::<$t>() ),*];
+                let components_type_ids: &[std::any::TypeId] = &[$( std::any::TypeId::of::<$t>() ),*];
                 for component_id in components_type_ids {
                     f(*component_id);
                 }

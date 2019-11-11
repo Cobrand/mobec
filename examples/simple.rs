@@ -1,4 +1,4 @@
-use rubyec::*;
+use rubyec::{define_entity, EntityBase};
 
 #[derive(Debug)]
 pub struct A {
@@ -13,10 +13,11 @@ pub struct B {
     b: String
 }
 
-define_entity!{ a: A, a2: A2;
+define_entity!{ a: A;
     b => B,
 }
 
 fn main() {
-    let entity = Entity::new((A { i: 0} , A2 {j: 0.0}));
+    let entity = Entity::new(A { i: 0} )
+        .with(B { b: String::new() });
 }
