@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 mod entity;
 mod entity_list;
 

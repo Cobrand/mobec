@@ -61,21 +61,25 @@ impl<E: EntityBase> EntityList<E> {
         self.entities.iter()
     }
 
-    // pub fn iter_for_components<'a, C: MultiComponent<E>>(&'a self) -> Box<dyn Iterator<Item=(EntityId, &'a E)> + 'a> {
-    //     let bitset = C::join(&self.bitsets);
-    //     let iter = bitset.iter().filter_map(move |i: u32| {
-    //         self.entities
-    //             .get_unknown_gen(i as usize)
-    //             .and_then(|(e, i)| {
-    //                 if C::entity_has_components(e) {
-    //                     Some((i, e))
-    //                 } else {
-    //                     None
-    //                 }
-    //             })
-    //     });
-    //     Box::new(iter)
-    // }
+    pub fn iter_for_components<'a, C: MultiComponent<E>>(&'a self) -> impl Iterator<Item=(EntityId, &'a E)> + 'a {
+        let bitset_iter = C::iter(&self.bitsets);
+        bitset_iter.filter_map(move |i: u32| {
+            self.entities
+                .get_unknown_gen(i as usize)
+                .and_then(|(e, i)| {
+                    if C::entity_has_components(e) {
+                        Some((i, e))
+                    } else {
+                        None
+                    }
+                })
+        })
+    }
+
+    pub fn iter_mut_for_components<'a, C: MultiComponent<E>>(&'a mut self) -> impl Iterator<Item=(EntityId, &'a mut E)> {
+        let bitset_iter = C::iter(&self.bitsets);
+        MultiComponentIterMut::new(bitset_iter, &mut self.entities)
+    }
 
     /// Add a component for the given entity.
     ///
@@ -151,56 +155,102 @@ impl<E: EntityBase> EntityList<E> {
         }
     }
 
+    /// Akin to Vec::retain, deletes entities where the predicate returns true
     pub fn retain(&mut self, mut predicate: impl FnMut(EntityId, &mut E) -> bool) {
         let bitsets = &mut self.bitsets;
         self.entities.retain(|index, e| {
-            e.for_each_active_component(|type_id: TypeId| {
-                if let Some(bitset) = bitsets.get_mut(&type_id) {
-                    bitset.remove(index.clone().into_raw_parts().0 as u32);
-                }
-            });
-            predicate(index, e)
+            let should_delete = predicate(index, e);
+            if should_delete {
+                e.for_each_active_component(|type_id: TypeId| {
+                    if let Some(bitset) = bitsets.get_mut(&type_id) {
+                        bitset.remove(index.clone().into_raw_parts().0 as u32);
+                    }
+                });
+            }
+            should_delete
         })
     }
 }
 
-pub trait MultiComponent<E: EntityBase> {
-    // type JoinedBitSet: BitSetLike + 'static;
+pub struct MultiComponentIter<'a, T> {
+    pub (crate) bitset_iter: BitIter<Box<dyn BitSetLike + 'a>>,
+    pub (crate) entities: &'a Arena<T>,
+}
 
-    // fn join(bitsets: &HashMap<TypeId, BitSet>) -> Self::JoinedBitSet;
-    
+impl<'a, T> MultiComponentIter<'a, T> {
+    pub fn new(bitset_iter: BitIter<Box<dyn BitSetLike + 'a>>, entities: &'a Arena<T>) -> MultiComponentIter<'a, T> {
+        MultiComponentIter {
+            bitset_iter,
+            entities,
+        }
+    }
+}
+
+impl<'a, T> Iterator for MultiComponentIter<'a, T> {
+    type Item = (EntityId, &'a T);
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(n) = self.bitset_iter.next() {
+            match self.entities.get_unknown_gen(n as usize) {
+                Some((el, index)) => return Some((index, el)),
+                None => continue,
+            }
+        }
+        None
+    }
+}
+
+pub struct MultiComponentIterMut<'a, T> {
+    pub (crate) bitset_iter: BitIter<Box<dyn BitSetLike + 'a>>,
+    pub (crate) entities: &'a mut Arena<T>,
+    #[cfg(debug_assertions)]
+    pub (crate) n: u32,
+}
+
+impl<'a, T> MultiComponentIterMut<'a, T> {
+    pub fn new(bitset_iter: BitIter<Box<dyn BitSetLike + 'a>>, entities: &'a mut Arena<T>) -> MultiComponentIterMut<'a, T> {
+        MultiComponentIterMut {
+            bitset_iter,
+            entities,
+            #[cfg(debug_assertions)]
+            n: 0,
+        }
+    }
+}
+
+impl<'a, T> Iterator for MultiComponentIterMut<'a, T> {
+    type Item = (EntityId, &'a mut T);
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(n) = self.bitset_iter.next() {
+            // check that n is strictly monotonically increasing, and thus never
+            // the same value twice
+            debug_assert!(n > self.n);
+            #[cfg(debug_assertions)] {
+                self.n = n;
+            }
+
+            match self.entities.get_unknown_gen_mut(n as usize) {
+                // We have the guarantee from
+                Some((el, index)) => {
+                    #[allow(unsafe_code)]
+                    // technically, we shouldn't be able to do this since
+                    // "next" borrows mut self, and we return a mutable item from self.
+                    // However, we have the guarantee that itset_iter.next() never returns
+                    // the same number twice, so it IS safe to return multiple references
+                    // to the same data in the case of this iterator.
+                    let el = unsafe { &mut *(el as *mut _) };
+                    return Some((index, el))
+                },
+                None => continue,
+            }
+        }
+        None
+    }
+}
+
+pub trait MultiComponent<E: EntityBase> {
     fn iter<'a>(bitsets: &'a HashMap<TypeId, BitSet>) -> BitIter<Box<dyn BitSetLike + 'a>>;
 
     fn entity_has_components(entity: &E) -> bool;
-}
-
-// impl<E: EntityBase, C: Component<E> + 'static> MultiComponent<E> for C {
-//     type JoinedBitSet = BitSet;
-
-//     fn join(bitsets: &HashMap<TypeId, BitSet>) -> Self::JoinedBitSet {
-//         match bitsets.get(&TypeId::of::<C>()) {
-//             Some(other_bitset) => other_bitset.clone(),
-//             None => BitSet::new(),
-//         }
-//     }
-
-//     fn entity_has_components(entity: &E) -> bool {
-//         entity.has::<C>()
-//     }
-// }
-
-// pub struct MultiComponentIter<'a> {
-//     bitsets: Vec<&'a BitSet>,
-
-// }
-
-macro_rules! p {
-    ($x:ident) => (
-        BitSetAnd<BitSet, BitSet>
-    );
-    ($x:ident, $( $y:ident ),+) => (
-        BitSetAnd<p!( $($y), *), BitSet>
-    )
 }
 
 macro_rules! multi_component_impl {
@@ -225,7 +275,7 @@ macro_rules! multi_component_impl {
 }
 
 multi_component_impl!(C1);
-// multi_component_impl!(C1, C2);
+multi_component_impl!(C1, C2);
 // multi_component_impl!(C1, C2, C3);
 // multi_component_impl!(C1, C2, C3, C4);
 // multi_component_impl!(C1, C2, C3, C4, C5);
