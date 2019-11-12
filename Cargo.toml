@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 hashbrown = "0.6"
 
-# change back to crates.io once https://github.com/fitzgen/generational-arena/pull/26 is fixed
-generational-arena = { git = "https://github.com/Cobrand/generational-arena.git", rev = "99422a4" }
+generational-arena = "^0.2.6"
 
-hibitset = "0.6"
+hibitset = { path = "../hibitset" }
+# hibitset = { git = "https://github.com/Cobrand/hibitset.git", rev = "3ca240bdd42592d5a88a512ae9"}

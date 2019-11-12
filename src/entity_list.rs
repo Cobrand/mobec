@@ -3,7 +3,7 @@ use std::convert::TryInto;
 
 
 use hashbrown::HashMap;
-use hibitset::{BitSet, BitSetLike, BitSetAnd};
+use hibitset::{BitSet, BitSetLike, BitIter, BitSetAll, BitSetAnd};
 
 use generational_arena::{Arena, Index};
 
@@ -61,20 +61,21 @@ impl<E: EntityBase> EntityList<E> {
         self.entities.iter()
     }
 
-    pub fn iter_for_components<'a, C: MultiComponent<E>>(&'a self) -> Box<dyn Iterator<Item=(EntityId, &'a E)> + 'a> {
-        let bitset = C::join(&self.bitsets);
-        let iter = bitset.iter().filter_map(move |i: u32| {
-            let maybe = self.entities.get_unknown_gen(i as usize);
-            maybe.and_then(|(e, i)| {
-                if C::entity_has_components(e) {
-                    Some((i, e))
-                } else {
-                    None
-                }
-            })
-        });
-        Box::new(iter)
-    }
+    // pub fn iter_for_components<'a, C: MultiComponent<E>>(&'a self) -> Box<dyn Iterator<Item=(EntityId, &'a E)> + 'a> {
+    //     let bitset = C::join(&self.bitsets);
+    //     let iter = bitset.iter().filter_map(move |i: u32| {
+    //         self.entities
+    //             .get_unknown_gen(i as usize)
+    //             .and_then(|(e, i)| {
+    //                 if C::entity_has_components(e) {
+    //                     Some((i, e))
+    //                 } else {
+    //                     None
+    //                 }
+    //             })
+    //     });
+    //     Box::new(iter)
+    // }
 
     /// Add a component for the given entity.
     ///
@@ -164,9 +165,11 @@ impl<E: EntityBase> EntityList<E> {
 }
 
 pub trait MultiComponent<E: EntityBase> {
-    type JoinedBitSet: BitSetLike + 'static;
+    // type JoinedBitSet: BitSetLike + 'static;
 
-    fn join(bitsets: &HashMap<TypeId, BitSet>) -> Self::JoinedBitSet;
+    // fn join(bitsets: &HashMap<TypeId, BitSet>) -> Self::JoinedBitSet;
+    
+    fn iter<'a>(bitsets: &'a HashMap<TypeId, BitSet>) -> BitIter<Box<dyn BitSetLike + 'a>>;
 
     fn entity_has_components(entity: &E) -> bool;
 }
@@ -186,6 +189,11 @@ pub trait MultiComponent<E: EntityBase> {
 //     }
 // }
 
+// pub struct MultiComponentIter<'a> {
+//     bitsets: Vec<&'a BitSet>,
+
+// }
+
 macro_rules! p {
     ($x:ident) => (
         BitSetAnd<BitSet, BitSet>
@@ -198,17 +206,15 @@ macro_rules! p {
 macro_rules! multi_component_impl {
     ( $($ty:ident),* ) => {
         impl<E: EntityBase, $( $ty : Component<E> + 'static ),*> MultiComponent<E> for ( $( $ty , )* ) {
-            type JoinedBitSet = p!($($ty),*);
-
-            fn join(bitsets: &HashMap<TypeId, BitSet>) -> Self::JoinedBitSet {
-                let bitset = BitSet::new();
+            fn iter<'a>(bitsets: &'a HashMap<TypeId, BitSet>) -> BitIter<Box<dyn BitSetLike + 'a>> {
+                let bitset = BitSetAll;
                 $(
-                let bitset = match bitsets.get(&TypeId::of::<$ty>()) {
-                    Some(other_bitset) => BitSetAnd(bitset, other_bitset.clone()),
-                    None => BitSetAnd(bitset, BitSet::new()),
+                let bitset: Box<dyn BitSetLike> = match bitsets.get(&TypeId::of::<$ty>()) {
+                    Some(other_bitset) => Box::new(BitSetAnd(bitset, other_bitset)),
+                    None => Box::new(BitSetAnd(bitset, BitSetAll)),
                 };
                 )*
-                bitset
+                BitIter::from(bitset)
             }
 
             fn entity_has_components(entity: &E) -> bool {
