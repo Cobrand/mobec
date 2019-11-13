@@ -24,6 +24,60 @@ impl<E: EntityBase> EntityList<E> {
         }
     }
 
+    pub fn insert(&mut self, entity: E) -> EntityId {
+        let mut type_ids: Vec<TypeId> = Vec::with_capacity(8);
+        entity.for_each_active_component(|type_id: TypeId| {
+            type_ids.push(type_id);
+        });
+        let entity_id = self.entities.insert(entity);
+        let (generation_less_index, _) = entity_id.into_raw_parts();
+        for type_id in type_ids {
+            if let Some(bitset) = self.bitsets.get_mut(&type_id) {
+                bitset.add(generation_less_index as u32);
+            }
+        }
+        entity_id
+    }
+
+    pub fn remove(&mut self, id: EntityId) -> Option<E> {
+        if let Some(e) = self.entities.remove(id) {
+            let generation_less_index = id.into_raw_parts().0;
+            e.for_each_active_component(|type_id: TypeId| {
+                if let Some(bitset) = self.bitsets.get_mut(&type_id) {
+                    bitset.remove(generation_less_index as u32);
+                }
+            });
+            Some(e)
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    pub fn get(&self, id: EntityId) -> Option<&E> {
+        self.entities.get(id)
+    }
+
+    #[inline]
+    /// Retrieves an entity mutably.
+    ///
+    /// **WARNING**: You must not add or remove a component to this entity via the mutable
+    /// reference, otherwise the bitset cache will be invalid, resulting in this entity
+    /// possibly not being iterated over!
+    pub fn get_mut(&mut self, id: EntityId) -> Option<&mut E> {
+        self.entities.get_mut(id)
+    }
+
+    #[inline]
+    pub fn contains(&self, id: EntityId) -> bool {
+        self.entities.contains(id)
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.entities.len()
+    }
+
     // Add a bitset for a specific component for all entities.
     //
     // Typically done at the very start of the ECS
@@ -61,19 +115,13 @@ impl<E: EntityBase> EntityList<E> {
         self.entities.iter()
     }
 
-    pub fn iter_for_components<'a, C: MultiComponent<E>>(&'a self) -> impl Iterator<Item=(EntityId, &'a E)> + 'a {
+    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item=(EntityId, &'a mut E)> {
+        self.entities.iter_mut()
+    }
+
+    pub fn iter_for_components<'a, C: MultiComponent<E>>(&'a self) -> impl Iterator<Item=(EntityId, &'a E)> {
         let bitset_iter = C::iter(&self.bitsets);
-        bitset_iter.filter_map(move |i: u32| {
-            self.entities
-                .get_unknown_gen(i as usize)
-                .and_then(|(e, i)| {
-                    if C::entity_has_components(e) {
-                        Some((i, e))
-                    } else {
-                        None
-                    }
-                })
-        })
+        MultiComponentIter::new(bitset_iter, &self.entities)
     }
 
     pub fn iter_mut_for_components<'a, C: MultiComponent<E>>(&'a mut self) -> impl Iterator<Item=(EntityId, &'a mut E)> {
@@ -124,35 +172,6 @@ impl<E: EntityBase> EntityList<E> {
         };
 
         maybe_component
-    }
-
-    pub fn add_entity(&mut self, entity: E) -> EntityId {
-        let mut type_ids: Vec<TypeId> = Vec::with_capacity(8);
-        entity.for_each_active_component(|type_id: TypeId| {
-            type_ids.push(type_id);
-        });
-        let entity_id = self.entities.insert(entity);
-        let (generation_less_index, _) = entity_id.into_raw_parts();
-        for type_id in type_ids {
-            if let Some(bitset) = self.bitsets.get_mut(&type_id) {
-                bitset.add(generation_less_index as u32);
-            }
-        }
-        entity_id
-    }
-
-    pub fn remove_entity(&mut self, id: EntityId) -> Option<E> {
-        if let Some(e) = self.entities.remove(id) {
-            let generation_less_index = id.into_raw_parts().0;
-            e.for_each_active_component(|type_id: TypeId| {
-                if let Some(bitset) = self.bitsets.get_mut(&type_id) {
-                    bitset.remove(generation_less_index as u32);
-                }
-            });
-            Some(e)
-        } else {
-            None
-        }
     }
 
     /// Akin to Vec::retain, deletes entities where the predicate returns true
@@ -276,19 +295,17 @@ macro_rules! multi_component_impl {
 
 multi_component_impl!(C1);
 multi_component_impl!(C1, C2);
-// multi_component_impl!(C1, C2, C3);
-// multi_component_impl!(C1, C2, C3, C4);
-// multi_component_impl!(C1, C2, C3, C4, C5);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C17);
-// multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C17, C18);
+multi_component_impl!(C1, C2, C3);
+multi_component_impl!(C1, C2, C3, C4);
+multi_component_impl!(C1, C2, C3, C4, C5);
+multi_component_impl!(C1, C2, C3, C4, C5, C6);
+multi_component_impl!(C1, C2, C3, C4, C5, C6, C7);
+multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8);
+multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9);
+multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
+multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
+multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
+multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
+multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
+multi_component_impl!(C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16);

@@ -22,8 +22,8 @@ pub trait Component<E: Sized>: 'static {
 #[macro_export]
 macro_rules! define_entity {
     (
-        $( $propname:ident : $propt:path),* ;
-        $( $name:ident => $t:path),* $(,)*
+        $( $propname:ident : $propt:ty ),* $(,)* ;
+        $( $name:ident => $t:ty ),* $(,)*
     ) => {
 
         #[derive(Debug)]
@@ -79,7 +79,7 @@ macro_rules! define_entity {
                         $propname: $propname,
                     )*
                     $(
-                        $name: None
+                        $name: None,
                     )*
                 }
             }
@@ -152,7 +152,14 @@ pub trait EntityBase: Sized + 'static {
         self
     }
 
-    #[inline]
+    /// Depending on the current state of the component for the given entity, do some compelx operations.
+    ///
+    /// You must give a predicate that takes a `&mut Entity`, and returns a `ChangeComponent`.
+    /// This is an enum that has four variants: one to change nothing, one to remove the component,
+    /// one to replace (or add) a component, and another to mutate an already existing component.
+    ///
+    /// In all cases, the entity is returned. This is very useful if you have a component that is a "computed"
+    /// value depending on other components.
     fn with_component_change<'a, C: Component<Self>, F: FnOnce(&mut Self) -> ChangeComponent<C>>(mut self, f: F) -> Self {
         match f(&mut self) {
             ChangeComponent::NoChange => self,
@@ -169,18 +176,20 @@ pub trait EntityBase: Sized + 'static {
 
     #[inline]
     /// Peek the properties of the given component type, for the given entity, using the given predicate.
-    fn peek<C: Component<Self>, F: FnOnce(&C)>(&self, f: F) {
-        if let Some(r) = self.get::<C>() {
-            f(r)
-        }
+    ///
+    /// You may chosse to return a custom type in your predicate. If the entity has the component,
+    /// your value is returned, otherwise `None` is returned.
+    fn peek<C: Component<Self>, O, F: FnOnce(&C) -> O>(&self, f: F) -> Option<O> {
+        self.get::<C>().map(f)
     }
 
     #[inline]
     /// Mutate the properties of the given component type, for the given entity, using the given predicate.
-    fn mutate<C: Component<Self>, F: FnOnce(&mut C)>(&mut self, f: F) {
-        if let Some(r) = self.get_mut::<C>() {
-            f(r)
-        }
+    ///
+    /// You may choose to return a custom type in your predicate. If the entity has the component,
+    /// your value is returned, otherwise `None` is returned.
+    fn mutate<C: Component<Self>, O, F: FnOnce(&mut C) -> O>(&mut self, f: F) -> Option<O> {
+        self.get_mut::<C>().map(f)
     }
 
     #[inline]
