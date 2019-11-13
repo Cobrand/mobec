@@ -71,9 +71,9 @@ macro_rules! define_entity {
         )*
 
         impl rubyec::EntityBase for Entity {
-            type CreationParams = ( $( $propt ),* );
+            type CreationParams = ( $( $propt ,)* );
 
-            fn new( ( $( $propname ),* ) : ( $( $propt ),*) ) -> Self {
+            fn new( ( $( $propname ,)* ) : ( $( $propt ,)*) ) -> Self {
                 Entity {
                     $(
                         $propname: $propname,
@@ -144,9 +144,6 @@ pub trait EntityBase: Sized + 'static {
 
     #[inline]
     /// Removes the given component for the given entity.
-    ///
-    /// Mutations only apply to inner changes, not removal or creation of components. The predicate
-    /// is only called if the component exists for the given entity to begin with.
     fn with_removed<C: Component<Self>>(mut self) -> Self {
         self.remove::<C>();
         self

@@ -121,12 +121,12 @@ impl<E: EntityBase> EntityList<E> {
 
     pub fn iter_for_components<'a, C: MultiComponent<E>>(&'a self) -> impl Iterator<Item=(EntityId, &'a E)> {
         let bitset_iter = C::iter(&self.bitsets);
-        MultiComponentIter::new(bitset_iter, &self.entities)
+        MultiComponentIter::<E, C>::new(bitset_iter, &self.entities)
     }
 
     pub fn iter_mut_for_components<'a, C: MultiComponent<E>>(&'a mut self) -> impl Iterator<Item=(EntityId, &'a mut E)> {
         let bitset_iter = C::iter(&self.bitsets);
-        MultiComponentIterMut::new(bitset_iter, &mut self.entities)
+        MultiComponentIterMut::<E, C>::new(bitset_iter, &mut self.entities)
     }
 
     /// Add a component for the given entity.
@@ -191,65 +191,71 @@ impl<E: EntityBase> EntityList<E> {
     }
 }
 
-pub struct MultiComponentIter<'a, T> {
+pub struct MultiComponentIter<'a, E: EntityBase, C: MultiComponent<E>> {
     pub (crate) bitset_iter: BitIter<Box<dyn BitSetLike + 'a>>,
-    pub (crate) entities: &'a Arena<T>,
+    pub (crate) entities: &'a Arena<E>,
+    d: std::marker::PhantomData<C>,
 }
 
-impl<'a, T> MultiComponentIter<'a, T> {
-    pub fn new(bitset_iter: BitIter<Box<dyn BitSetLike + 'a>>, entities: &'a Arena<T>) -> MultiComponentIter<'a, T> {
+impl<'a, E: EntityBase, C: MultiComponent<E>> MultiComponentIter<'a, E, C> {
+    pub fn new(bitset_iter: BitIter<Box<dyn BitSetLike + 'a>>, entities: &'a Arena<E>) -> MultiComponentIter<'a, E, C> {
         MultiComponentIter {
             bitset_iter,
             entities,
+            d: Default::default(),
         }
     }
 }
 
-impl<'a, T> Iterator for MultiComponentIter<'a, T> {
-    type Item = (EntityId, &'a T);
+impl<'a, E: EntityBase, C: MultiComponent<E>> Iterator for MultiComponentIter<'a, E, C> {
+    type Item = (EntityId, &'a E);
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(n) = self.bitset_iter.next() {
             match self.entities.get_unknown_gen(n as usize) {
-                Some((el, index)) => return Some((index, el)),
-                None => continue,
+                Some((el, index)) if C::entity_has_components(el) => return Some((index, el)),
+                _ => continue,
             }
         }
         None
     }
 }
 
-pub struct MultiComponentIterMut<'a, T> {
+pub struct MultiComponentIterMut<'a, E: EntityBase, C: MultiComponent<E>> {
     pub (crate) bitset_iter: BitIter<Box<dyn BitSetLike + 'a>>,
-    pub (crate) entities: &'a mut Arena<T>,
+    pub (crate) entities: &'a mut Arena<E>,
+    d: std::marker::PhantomData<C>,
     #[cfg(debug_assertions)]
-    pub (crate) n: u32,
+    pub (crate) n: Option<u32>,
 }
 
-impl<'a, T> MultiComponentIterMut<'a, T> {
-    pub fn new(bitset_iter: BitIter<Box<dyn BitSetLike + 'a>>, entities: &'a mut Arena<T>) -> MultiComponentIterMut<'a, T> {
+impl<'a, E: EntityBase, C: MultiComponent<E>> MultiComponentIterMut<'a, E, C> {
+    pub fn new(bitset_iter: BitIter<Box<dyn BitSetLike + 'a>>, entities: &'a mut Arena<E>) -> MultiComponentIterMut<'a, E, C> {
         MultiComponentIterMut {
             bitset_iter,
             entities,
+            d: Default::default(),
             #[cfg(debug_assertions)]
-            n: 0,
+            n: None,
         }
     }
 }
 
-impl<'a, T> Iterator for MultiComponentIterMut<'a, T> {
-    type Item = (EntityId, &'a mut T);
+impl<'a, E: EntityBase, C: MultiComponent<E>> Iterator for MultiComponentIterMut<'a, E, C> {
+    type Item = (EntityId, &'a mut E);
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(n) = self.bitset_iter.next() {
             // check that n is strictly monotonically increasing, and thus never
             // the same value twice
-            debug_assert!(n > self.n);
             #[cfg(debug_assertions)] {
-                self.n = n;
+                if let Some(old_n) = self.n {
+                    debug_assert!(n > old_n);
+                }
+                self.n = Some(n);
             }
 
             match self.entities.get_unknown_gen_mut(n as usize) {
                 // We have the guarantee from
-                Some((el, index)) => {
+                Some((el, index)) if C::entity_has_components(el) => {
                     #[allow(unsafe_code)]
                     // technically, we shouldn't be able to do this since
                     // "next" borrows mut self, and we return a mutable item from self.
@@ -259,7 +265,7 @@ impl<'a, T> Iterator for MultiComponentIterMut<'a, T> {
                     let el = unsafe { &mut *(el as *mut _) };
                     return Some((index, el))
                 },
-                None => continue,
+                _ => continue,
             }
         }
         None

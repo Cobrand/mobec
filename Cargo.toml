@@ -13,3 +13,10 @@ generational-arena = "^0.2.6"
 
 hibitset = { path = "../hibitset" }
 # hibitset = { git = "https://github.com/Cobrand/hibitset.git", rev = "3ca240bdd42592d5a88a512ae9"}
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "iter"
+harness = false

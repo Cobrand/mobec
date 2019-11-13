@@ -4,25 +4,25 @@ use rubyec::{
     EntityBase,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ComponentA {
     alpha: f32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ComponentB {
     beta: i32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ComponentC {
     ceta: u32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct CommonProp;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct AgeProp {
     age: u32,
 }
@@ -99,6 +99,81 @@ fn entity_ops() {
 }
 
 #[test]
+fn entity_with_ops() {
+    let e = Entity::new((CommonProp, AgeProp { age: 5 }))
+            .with(ComponentA { alpha: 5.0 });
+    let e = e.with_removed::<ComponentA>();
+    debug_assert_eq!(e.get::<ComponentA>(), None);
+
+    let e = e.with(ComponentB { beta: 5 });
+    debug_assert_eq!(e.get::<ComponentB>().clone(), Some(&ComponentB { beta: 5 }));
+
+    let e = e.with_mutation(|c: &mut ComponentB| {
+        c.beta += 1;
+    });
+
+    debug_assert_eq!(e.get::<ComponentB>().clone(), Some(&ComponentB { beta: 6 }));
+}
+
+#[test]
+fn entity_with_component_change() {
+    use rubyec::ChangeComponent;
+
+    let e = Entity::new((CommonProp, AgeProp { age: 5 }))
+            .with(ComponentA { alpha: 5.0 })
+            .with(ComponentB { beta: 5 });
+    let e = e.with_component_change(|e: &mut Entity| -> ChangeComponent<ComponentA> {
+        if let Some(_) = e.get::<ComponentB>() {
+            ChangeComponent::Remove
+        } else {
+            ChangeComponent::NoChange
+        }
+    });
+
+    debug_assert_eq!(e.get::<ComponentA>(), None);
+
+    let e = e.with_component_change(|e: &mut Entity| -> ChangeComponent<ComponentA> {
+        if let Some(ComponentB { beta }) = e.get::<ComponentB>() {
+            ChangeComponent::Replace(ComponentA { alpha: 5.0 + (*beta as f32) })
+        } else {
+            ChangeComponent::NoChange
+        }
+    });
+
+    debug_assert_eq!(e.get::<ComponentA>(), Some(&ComponentA { alpha: 10.0 }));
+
+    let e = e.with_component_change(|e: &mut Entity| -> ChangeComponent<ComponentA> {
+        if let Some(ComponentB { beta }) = e.get::<ComponentB>() {
+            let beta = *beta;
+            ChangeComponent::Mutate(Box::new(move |a: &mut ComponentA| {
+                a.alpha += beta as f32;
+            }))
+        } else {
+            ChangeComponent::NoChange
+        }
+    });
+
+    debug_assert_eq!(e.get::<ComponentA>(), Some(&ComponentA { alpha: 15.0 }));
+    
+    let e = e.with_component_change(|_: &mut Entity| -> ChangeComponent<ComponentA> {
+        ChangeComponent::NoChange
+    });
+
+    debug_assert_eq!(e.get::<ComponentA>(), Some(&ComponentA { alpha: 15.0 }));
+}
+
+#[test]
+/// Tests that properties are available
+fn entity_prop_ops() {
+    let e = Entity::new((CommonProp, AgeProp { age: 5 }))
+            .with(ComponentA { alpha: 5.0 });
+    debug_assert_eq!(e.common, CommonProp);
+    debug_assert_eq!(e.age, AgeProp { age: 5 });
+}
+
+#[test]
+/// Tests immutable iteration, and also that bitsets can be added after adding entities.
+/// Also test that iteration works even with a partial coverage of entities.
 fn iter() {
     let mut entity_list: EntityList<Entity> = EntityList::new();
 
@@ -154,4 +229,77 @@ fn iter() {
     debug_assert_eq!(comp_b_and_c, &[id_5, id_6]);
     
     debug_assert_eq!(comp_all, &[id_6]);
+}
+
+#[test]
+/// Tests mutable iteration, and also that bitsets can be added before adding entities.
+fn iter_mut() {
+    let mut entity_list: EntityList<Entity> = EntityList::new();
+
+    entity_list.add_bitset_for_component::<ComponentA>();
+    entity_list.add_bitset_for_component::<ComponentB>();
+    entity_list.add_bitset_for_component::<ComponentC>();
+
+    let id_1 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 5 }))
+            .with(ComponentA { alpha: 5.0 })
+    );
+    let id_2 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 1 }))
+            .with(ComponentB { beta: 5 })
+    );
+    let id_3 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 6 }))
+            .with(ComponentB { beta: 6 })
+            .with(ComponentA { alpha: 6.0 })
+    );
+    let id_4 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 6 }))
+            .with(ComponentC { ceta: 6 })
+    );
+    let id_5 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 6 }))
+            .with(ComponentB { beta: 6 })
+            .with(ComponentC { ceta: 6 })
+    );
+    let id_6 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 6 }))
+            .with(ComponentA { alpha: 6.0 })
+            .with(ComponentB { beta: 6 })
+            .with(ComponentC { ceta: 6 })
+    );
+
+    let all_entities: Vec<_> = entity_list.iter_mut().map(|(i, _e)| i).collect();
+    let only_comp_a: Vec<_> = entity_list.iter_mut_for_components::<(ComponentA,)>().map(|(i, _e)| i).collect();
+    let only_comp_b: Vec<_> = entity_list.iter_mut_for_components::<(ComponentB,)>().map(|(i, _e)| i).collect();
+    let only_comp_c: Vec<_> = entity_list.iter_mut_for_components::<(ComponentC,)>().map(|(i, _e)| i).collect();
+    let comp_a_and_b: Vec<_> = entity_list.iter_mut_for_components::<(ComponentA, ComponentB)>().map(|(i, _e)| i).collect();
+    let comp_a_and_c: Vec<_> = entity_list.iter_mut_for_components::<(ComponentA, ComponentC)>().map(|(i, _e)| i).collect();
+    let comp_b_and_c: Vec<_> = entity_list.iter_mut_for_components::<(ComponentB, ComponentC)>().map(|(i, _e)| i).collect();
+    let comp_all: Vec<_> = entity_list.iter_mut_for_components::<(ComponentB, ComponentC, ComponentA)>().map(|(i, _e)| i).collect();
+
+    debug_assert_eq!(all_entities, &[id_1, id_2, id_3, id_4, id_5, id_6]);
+
+    debug_assert_eq!(only_comp_a, &[id_1, id_3, id_6]);
+    debug_assert_eq!(only_comp_b, &[id_2, id_3, id_5, id_6]);
+    debug_assert_eq!(only_comp_c, &[id_4, id_5, id_6]);
+
+    debug_assert_eq!(comp_a_and_b, &[id_3, id_6]);
+    debug_assert_eq!(comp_a_and_c, &[id_6]);
+    debug_assert_eq!(comp_b_and_c, &[id_5, id_6]);
+    
+    debug_assert_eq!(comp_all, &[id_6]);
+
+
+    let mut v: Vec<_> = Vec::new();
+
+    for el in entity_list.iter_mut_for_components::<(ComponentA,)>().map(|(_i, e)| e) {
+        v.push(el);
+    }
+
+    // // this is commented, but it should NOT compile if you uncomment it. If there is one day a
+    // // way to create #[compile_fail] tests, then we could put that here.
+    // for el in entity_list.iter_mut_for_components::<(ComponentB,)>().map(|(_i, e)| e) {
+    //     v.push(el);
+    // }
 }
