@@ -109,8 +109,8 @@ fn generate_dual_component_list_sparse(list_size: u32) -> EntityList<Entity> {
                 e = e.with(Speed { x: i as f32, y: 2.0* (j as f32) })
             }
             is_static = !is_static;
-            c = (c + 1) % 12;
-            s = (s + 1) % 7;
+            c = (c + 1) % 19;
+            s = (s + 1) % 21;
 
             entity_list.insert(e);
         }

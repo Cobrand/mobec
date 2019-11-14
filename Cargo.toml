@@ -14,9 +14,16 @@ generational-arena = "^0.2.6"
 hibitset = { path = "../hibitset" }
 # hibitset = { git = "https://github.com/Cobrand/hibitset.git", rev = "3ca240bdd42592d5a88a512ae9"}
 
+tuple_utils = "0.3"
+
 [dev-dependencies]
 criterion = "0.3"
 
 [[bench]]
 name = "iter"
 harness = false
+
+[profile.release]
+# EXTREMELY IMPORTANT: REMOVE THIS LINE FOR TRUE RELEASES
+# only used for flamegraphs
+# debug = true
