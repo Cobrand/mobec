@@ -18,10 +18,12 @@ pub struct EntityList<E: EntityBase> {
 
 impl<E: EntityBase> EntityList<E> {
     pub fn new() -> EntityList<E> {
-        EntityList {
+        let mut l = EntityList {
             bitsets: HashMap::new(),
             entities: Arena::new(),
-        }
+        };
+        l.init_bitsets(None);
+        l
     }
 
     pub fn insert(&mut self, entity: E) -> EntityId {
@@ -78,10 +80,20 @@ impl<E: EntityBase> EntityList<E> {
         self.entities.len()
     }
 
+    /// Initialize bitsets for all components of entity E
+    ///
+    /// Capacity is 4096, and is applied for all bitsets.
+    pub (crate) fn init_bitsets(&mut self, capacity: Option<u32>) {
+        E::for_all_components(|type_id: TypeId| {
+            self.bitsets.insert(type_id, BitSet::with_capacity(capacity.unwrap_or(4096)));
+        });
+    }
+
     // Add a bitset for a specific component for all entities.
     //
     // Typically done at the very start of the ECS
-    pub fn add_bitset_for_component<C: Component<E> + 'static>(&mut self) {
+    #[allow(dead_code)]
+    pub (crate) fn add_bitset_for_component<C: Component<E>>(&mut self) {
         let bitset_capacity: u32 = self.entities.capacity().try_into().expect("too many entities");
         let mut bitset = BitSet::with_capacity(bitset_capacity);
         for (entity_id, entity) in &self.entities {
@@ -98,7 +110,8 @@ impl<E: EntityBase> EntityList<E> {
     // Remove a bitset for a specific component for all entities.
     //
     // Returns true if the bitset was actually there and was removed
-    pub fn remove_bitset_for_component<C: Component<E> + 'static>(&mut self) -> bool {
+    #[allow(dead_code)]
+    pub (crate) fn remove_bitset_for_component<C: Component<E>>(&mut self) -> bool {
         let bitset_capacity: u32 = self.entities.capacity().try_into().expect("too many entities");
         let mut bitset = BitSet::with_capacity(bitset_capacity);
         for (entity_id, entity) in &self.entities {

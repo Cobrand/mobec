@@ -206,17 +206,14 @@ fn iter() {
             .with(ComponentC { ceta: 6 })
     );
 
-    entity_list.add_bitset_for_component::<ComponentA>();
-    entity_list.add_bitset_for_component::<ComponentB>();
-
-    let all_entities: Vec<_> = entity_list.iter().map(|(i, _e)| i).collect();
-    let only_comp_a: Vec<_> = entity_list.iter_for_components::<(ComponentA,)>().map(|(i, _e)| i).collect();
-    let only_comp_b: Vec<_> = entity_list.iter_for_components::<(ComponentB,)>().map(|(i, _e)| i).collect();
-    let only_comp_c: Vec<_> = entity_list.iter_for_components::<(ComponentC,)>().map(|(i, _e)| i).collect();
-    let comp_a_and_b: Vec<_> = entity_list.iter_for_components::<(ComponentA, ComponentB)>().map(|(i, _e)| i).collect();
-    let comp_a_and_c: Vec<_> = entity_list.iter_for_components::<(ComponentA, ComponentC)>().map(|(i, _e)| i).collect();
-    let comp_b_and_c: Vec<_> = entity_list.iter_for_components::<(ComponentB, ComponentC)>().map(|(i, _e)| i).collect();
-    let comp_all: Vec<_> = entity_list.iter_for_components::<(ComponentB, ComponentC, ComponentA)>().map(|(i, _e)| i).collect();
+    let all_entities: Vec<_> = entity_list.iter_all().map(|(i, _e)| i).collect();
+    let only_comp_a: Vec<_> = entity_list.iter::<(ComponentA,)>().map(|(i, _e)| i).collect();
+    let only_comp_b: Vec<_> = entity_list.iter::<(ComponentB,)>().map(|(i, _e)| i).collect();
+    let only_comp_c: Vec<_> = entity_list.iter::<(ComponentC,)>().map(|(i, _e)| i).collect();
+    let comp_a_and_b: Vec<_> = entity_list.iter::<(ComponentA, ComponentB)>().map(|(i, _e)| i).collect();
+    let comp_a_and_c: Vec<_> = entity_list.iter::<(ComponentA, ComponentC)>().map(|(i, _e)| i).collect();
+    let comp_b_and_c: Vec<_> = entity_list.iter::<(ComponentB, ComponentC)>().map(|(i, _e)| i).collect();
+    let comp_all: Vec<_> = entity_list.iter::<(ComponentB, ComponentC, ComponentA)>().map(|(i, _e)| i).collect();
 
     debug_assert_eq!(all_entities, &[id_1, id_2, id_3, id_4, id_5, id_6]);
 
@@ -235,10 +232,6 @@ fn iter() {
 /// Tests mutable iteration, and also that bitsets can be added before adding entities.
 fn iter_mut() {
     let mut entity_list: EntityList<Entity> = EntityList::new();
-
-    entity_list.add_bitset_for_component::<ComponentA>();
-    entity_list.add_bitset_for_component::<ComponentB>();
-    entity_list.add_bitset_for_component::<ComponentC>();
 
     let id_1 = entity_list.insert(
         Entity::new((CommonProp, AgeProp { age: 5 }))
@@ -269,14 +262,14 @@ fn iter_mut() {
             .with(ComponentC { ceta: 6 })
     );
 
-    let all_entities: Vec<_> = entity_list.iter_mut().map(|(i, _e)| i).collect();
-    let only_comp_a: Vec<_> = entity_list.iter_mut_for_components::<(ComponentA,)>().map(|(i, _e)| i).collect();
-    let only_comp_b: Vec<_> = entity_list.iter_mut_for_components::<(ComponentB,)>().map(|(i, _e)| i).collect();
-    let only_comp_c: Vec<_> = entity_list.iter_mut_for_components::<(ComponentC,)>().map(|(i, _e)| i).collect();
-    let comp_a_and_b: Vec<_> = entity_list.iter_mut_for_components::<(ComponentA, ComponentB)>().map(|(i, _e)| i).collect();
-    let comp_a_and_c: Vec<_> = entity_list.iter_mut_for_components::<(ComponentA, ComponentC)>().map(|(i, _e)| i).collect();
-    let comp_b_and_c: Vec<_> = entity_list.iter_mut_for_components::<(ComponentB, ComponentC)>().map(|(i, _e)| i).collect();
-    let comp_all: Vec<_> = entity_list.iter_mut_for_components::<(ComponentB, ComponentC, ComponentA)>().map(|(i, _e)| i).collect();
+    let all_entities: Vec<_> = entity_list.iter_all_mut().map(|(i, _e)| i).collect();
+    let only_comp_a: Vec<_> = entity_list.iter_mut::<(ComponentA,)>().map(|(i, _e)| i).collect();
+    let only_comp_b: Vec<_> = entity_list.iter_mut::<(ComponentB,)>().map(|(i, _e)| i).collect();
+    let only_comp_c: Vec<_> = entity_list.iter_mut::<(ComponentC,)>().map(|(i, _e)| i).collect();
+    let comp_a_and_b: Vec<_> = entity_list.iter_mut::<(ComponentA, ComponentB)>().map(|(i, _e)| i).collect();
+    let comp_a_and_c: Vec<_> = entity_list.iter_mut::<(ComponentA, ComponentC)>().map(|(i, _e)| i).collect();
+    let comp_b_and_c: Vec<_> = entity_list.iter_mut::<(ComponentB, ComponentC)>().map(|(i, _e)| i).collect();
+    let comp_all: Vec<_> = entity_list.iter_mut::<(ComponentB, ComponentC, ComponentA)>().map(|(i, _e)| i).collect();
 
     debug_assert_eq!(all_entities, &[id_1, id_2, id_3, id_4, id_5, id_6]);
 
@@ -293,13 +286,13 @@ fn iter_mut() {
 
     let mut v: Vec<_> = Vec::new();
 
-    for el in entity_list.iter_mut_for_components::<(ComponentA,)>().map(|(_i, e)| e) {
+    for el in entity_list.iter_mut::<(ComponentA,)>().map(|(_i, e)| e) {
         v.push(el);
     }
 
     // // this is commented, but it should NOT compile if you uncomment it. If there is one day a
     // // way to create #[compile_fail] tests, then we could put that here.
-    // for el in entity_list.iter_mut_for_components::<(ComponentB,)>().map(|(_i, e)| e) {
+    // for el in entity_list.iter_mut::<(ComponentB,)>().map(|(_i, e)| e) {
     //     v.push(el);
     // }
 }
