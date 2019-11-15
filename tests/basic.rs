@@ -42,38 +42,6 @@ define_entity! {
     }
 }
 
-// fn generate_sample_data() -> EntityList<Entity> {
-//     let mut entity_list: EntityList<Entity> = EntityList::new();
-
-//     entity_list.add_bitset_for_component::<ComponentA>();
-//     entity_list.add_bitset_for_component::<ComponentB>();
-
-//     entity_list.insert(
-//         Entity::new((CommonProp, AgeProp { age: 5 }))
-//             .with(ComponentA { alpha: 5.0 })
-//     );
-//     entity_list.insert(
-//         Entity::new((CommonProp, AgeProp { age: 6 }))
-//             .with(ComponentB { beta: 5 })
-//     );
-//     entity_list.insert(
-//         Entity::new((CommonProp, AgeProp { age: 7 }))
-//             .with(ComponentA { alpha: 5.0 })
-//             .with(ComponentB { beta: 5 })
-//     );
-//     entity_list.insert(
-//         Entity::new((CommonProp, AgeProp { age: 8 }))
-//             .with(ComponentC { ceta: 5 })
-//     );
-//     entity_list.insert(
-//         Entity::new((CommonProp, AgeProp { age: 9 }))
-//             .with(ComponentA { alpha: 5.0 })
-//             .with(ComponentC { ceta: 5 })
-//     );
-
-//     entity_list
-// }
-
 #[test]
 fn entity_ops() {
     let mut entity_list: EntityList<Entity> = EntityList::new();

@@ -21,6 +21,7 @@ serde = { version = "^1", optional = true, default-features = false}
 [dev-dependencies]
 criterion = "0.3"
 serde = { version = "^1", default-features = false, features = ["derive"]}
+bincode = "^1.2"
 
 [features]
 default = []
@@ -28,6 +29,10 @@ use_serde = ["serde", "generational-arena/serde"]
 
 [[bench]]
 name = "iter"
+harness = false
+
+[[bench]]
+name = "reconstruct"
 harness = false
 
 [profile.release]
