@@ -10,6 +10,7 @@ pub struct B {
 }
 
 define_entity!{
+    #[derive(Debug)]
     pub struct Entity {
         props => { a: A }
         components => { b => B }

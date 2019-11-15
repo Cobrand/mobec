@@ -21,7 +21,8 @@ pub trait Component<E: Sized>: 'static {
 /// Macro to create an `Entity` type where this is called.
 #[macro_export]
 macro_rules! define_entity {
-    (   $vis:vis struct $entityname:ident {
+    (   #[derive( $( $derivety:path ),* ) ]
+        $vis:vis struct $entityname:ident {
             props => {
                 $( $propname:ident : $propt:ty),* $(,)*
             } $(,)?
@@ -31,6 +32,7 @@ macro_rules! define_entity {
         }
     ) => {
 
+        #[derive( $( $derivety ),* )]
         $vis struct $entityname {
             $(
                 pub $propname : $propt,
@@ -104,7 +106,7 @@ macro_rules! define_entity {
                 }
             }
         }
-    }
+    };
 }
 
 pub enum ChangeComponent<C> {

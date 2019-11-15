@@ -23,6 +23,7 @@ pub struct CollisionBox {
 }
 
 define_entity!{
+    #[derive(Debug)]
     pub struct Entity {
         props => {
             pos: P,
