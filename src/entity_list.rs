@@ -26,6 +26,15 @@ impl<E: EntityBase> EntityList<E> {
         l
     }
 
+    pub fn from_arena(arena: Arena<E>) -> EntityList<E> {
+        let mut l: EntityList<_> = EntityList {
+            bitsets: HashMap::new(),
+            entities: arena,
+        };
+        l.regenerate_all_component_bitsets();
+        l
+    }
+
     pub fn insert(&mut self, entity: E) -> EntityId {
         let mut type_ids: Vec<TypeId> = Vec::with_capacity(8);
         entity.for_each_active_component(|type_id: TypeId| {
@@ -87,6 +96,21 @@ impl<E: EntityBase> EntityList<E> {
         E::for_all_components(|type_id: TypeId| {
             self.bitsets.insert(type_id, BitSet::with_capacity(capacity.unwrap_or(4096)));
         });
+    }
+
+    fn regenerate_all_component_bitsets(&mut self) {
+        let capacity = self.entities.len();
+        E::for_all_components(|type_id: TypeId| {
+            self.bitsets.insert(type_id, BitSet::with_capacity(capacity as u32));
+        });
+        for (id, el) in &self.entities {
+            let i = id.into_raw_parts().0;
+            let bitsets: &mut HashMap<TypeId, BitSet> = &mut self.bitsets;
+            el.for_each_active_component(|type_id: TypeId| {
+                let bitset: &mut BitSet = bitsets.get_mut(&type_id).unwrap();
+                bitset.add(i as u32);
+            })
+        }
     }
 
     // Add a bitset for a specific component for all entities.
