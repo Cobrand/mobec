@@ -92,7 +92,7 @@ macro_rules! define_entity {
 
             fn for_each_active_component(&self, mut f: impl FnMut(std::any::TypeId)) {
                 $(
-                    if let Some(_p) = &self.$componentname {
+                    if self.$componentname.is_some() {
                         f(std::any::TypeId::of::< $componenttype >())
                     };
                 )*

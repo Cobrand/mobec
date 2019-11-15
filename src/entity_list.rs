@@ -100,15 +100,20 @@ impl<E: EntityBase> EntityList<E> {
 
     fn regenerate_all_component_bitsets(&mut self) {
         let capacity = self.entities.len();
+
         E::for_all_components(|type_id: TypeId| {
             self.bitsets.insert(type_id, BitSet::with_capacity(capacity as u32));
         });
+        let mut bitsets: Vec<(TypeId, &mut BitSet)> = self.bitsets.iter_mut().map(|(k, v)| (*k, v)).collect::<Vec<_>>();
+        bitsets.sort_unstable_by(|(k1, _), (k2, _)| k1.cmp(k2));
         for (id, el) in &self.entities {
-            let i = id.into_raw_parts().0;
-            let bitsets: &mut HashMap<TypeId, BitSet> = &mut self.bitsets;
-            el.for_each_active_component(|type_id: TypeId| {
-                let bitset: &mut BitSet = bitsets.get_mut(&type_id).unwrap();
-                bitset.add(i as u32);
+            let index = id.into_raw_parts().0;
+            el.for_each_active_component(|seek_type_id: TypeId| {
+                if let Ok(i) = bitsets.binary_search_by(|(tid, _)| tid.cmp(&seek_type_id)) {
+                    bitsets[i].1.add(index as u32);
+                } else {
+                    unreachable!()
+                }
             })
         }
     }
