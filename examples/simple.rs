@@ -9,8 +9,11 @@ pub struct B {
     b: String
 }
 
-define_entity!{ a: A;
-    b => B,
+define_entity!{
+    pub struct Entity {
+        props => { a: A }
+        components => { b => B }
+    }
 }
 
 fn main() {

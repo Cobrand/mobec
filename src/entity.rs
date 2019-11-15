@@ -21,80 +21,84 @@ pub trait Component<E: Sized>: 'static {
 /// Macro to create an `Entity` type where this is called.
 #[macro_export]
 macro_rules! define_entity {
-    (
-        $( $propname:ident : $propt:ty ),* $(,)* ;
-        $( $name:ident => $t:ty ),* $(,)*
+    (   $vis:vis struct $entityname:ident {
+            props => {
+                $( $propname:ident : $propt:ty),* $(,)*
+            } $(,)?
+            components => {
+                $( $componentname:ident => $componenttype:ty ),* $(,)*
+            } $(,)?
+        }
     ) => {
 
-        #[derive(Debug)]
-        pub struct Entity {
+        $vis struct $entityname {
             $(
                 pub $propname : $propt,
             )*
             $(
-                pub $name: Option<Box<$t>>,
+                pub $componentname: Option<Box<$componenttype>>,
             )*
         }
 
         $(
-            impl rubyec::Component<Entity> for $t {
+            impl rubyec::Component<$entityname> for $componenttype {
                 #[inline]
-                fn set(self, entity: &mut Entity) {
-                    entity.$name = Some(Box::new(self))
+                fn set(self, entity: &mut $entityname) {
+                    entity.$componentname = Some(Box::new(self))
                 }
 
                 #[inline]
-                fn get(entity: &Entity) -> Option<&$t> {
-                    entity.$name.as_ref().map(|s| &**s)
+                fn get(entity: &$entityname) -> Option<&$componenttype> {
+                    entity.$componentname.as_ref().map(|s| &**s)
                 }
 
                 #[inline]
-                fn get_mut(entity: &mut Entity) -> Option<&mut $t> {
-                    entity.$name.as_mut().map(|s| &mut **s)
+                fn get_mut(entity: &mut $entityname) -> Option<&mut $componenttype> {
+                    entity.$componentname.as_mut().map(|s| &mut **s)
                 }
 
                 #[inline]
-                fn remove(entity: &mut Entity) -> Option<Box<$t>> {
-                    entity.$name.take()
+                fn remove(entity: &mut $entityname) -> Option<Box<$componenttype>> {
+                    entity.$componentname.take()
                 }
 
                 #[inline]
-                fn peek<O, F: FnOnce(&Self) -> O>(entity: &Entity, f: F) -> Option<O> {
-                    entity.$name.as_ref().map(|c| &**c).map(f)
+                fn peek<O, F: FnOnce(&Self) -> O>(entity: &$entityname, f: F) -> Option<O> {
+                    entity.$componentname.as_ref().map(|c| &**c).map(f)
                 }
 
                 #[inline]
-                fn update<O, F: FnOnce(&mut Self) -> O>(entity: &mut Entity, f: F) -> Option<O> {
-                    entity.$name.as_mut().map(|c| &mut **c).map(f)
+                fn update<O, F: FnOnce(&mut Self) -> O>(entity: &mut $entityname, f: F) -> Option<O> {
+                    entity.$componentname.as_mut().map(|c| &mut **c).map(f)
                 }
             }
         )*
 
-        impl rubyec::EntityBase for Entity {
+        impl rubyec::EntityBase for $entityname {
             type CreationParams = ( $( $propt ,)* );
 
             fn new( ( $( $propname ,)* ) : ( $( $propt ,)*) ) -> Self {
-                Entity {
+                $entityname {
                     $(
                         $propname: $propname,
                     )*
                     $(
-                        $name: None,
+                        $componentname: None,
                     )*
                 }
             }
 
             fn for_each_active_component(&self, mut f: impl FnMut(std::any::TypeId)) {
                 $(
-                    if let Some(_p) = &self.$name {
-                        f(std::any::TypeId::of::< $t >())
+                    if let Some(_p) = &self.$componentname {
+                        f(std::any::TypeId::of::< $componenttype >())
                     };
                 )*
             }
 
             fn for_all_components(mut f: impl FnMut(std::any::TypeId)) {
                 // todo, replace this by const once TypeId::of is a const fn
-                let components_type_ids: &[std::any::TypeId] = &[$( std::any::TypeId::of::<$t>() ),*];
+                let components_type_ids: &[std::any::TypeId] = &[$( std::any::TypeId::of::<$componenttype>() ),*];
                 for component_id in components_type_ids {
                     f(*component_id);
                 }

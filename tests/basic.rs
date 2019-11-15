@@ -27,10 +27,18 @@ pub struct AgeProp {
     age: u32,
 }
 
-define_entity! { common: CommonProp, age: AgeProp ;
-    a => ComponentA,
-    b => ComponentB,
-    c => ComponentC,
+define_entity! { 
+    pub struct Entity {
+        props => {
+            common: CommonProp,
+            age: AgeProp,
+        },
+        components => {
+            a => ComponentA,
+            b => ComponentB,
+            c => ComponentC,
+        }
+    }
 }
 
 // fn generate_sample_data() -> EntityList<Entity> {

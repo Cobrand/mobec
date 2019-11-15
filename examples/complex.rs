@@ -21,9 +21,16 @@ pub struct CollisionBox {
     is_static: bool,
 }
 
-define_entity!{ pos: P;
-    speed => Speed,
-    collision_box => CollisionBox,
+define_entity!{
+    pub struct Entity { 
+        props => {
+            pos: P,
+        }
+        components => {
+            speed => Speed,
+            collision_box => CollisionBox,
+        }
+    }
 }
 
 fn update_dual_component_list(list: &mut EntityList<Entity>) {

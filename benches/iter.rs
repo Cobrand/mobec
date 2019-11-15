@@ -22,9 +22,16 @@ pub struct CollisionBox {
     is_static: bool,
 }
 
-define_entity!{ pos: P;
-    speed => Speed,
-    collision_box => CollisionBox,
+define_entity!{
+    pub struct Entity {
+        props => {
+            pos: P,
+        },
+        components => {
+            speed => Speed,
+            collision_box => CollisionBox,
+        }
+    }
 }
 
 fn generate_single_list(list_size: u32) -> EntityList<Entity> {
