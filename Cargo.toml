@@ -4,6 +4,13 @@ version = "0.1.0"
 authors = ["Cobrand <cobrandw@gmail.com>"]
 edition = "2018"
 
+description = """
+MobEC: a simple Entity Component library, leaving the system part up to you.
+"""
+readme = "README.md"
+keywords = ["gamedev", "ecs", "entity", "component"]
+license = "MIT/Apache-2.0"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -32,6 +39,9 @@ harness = false
 [[bench]]
 name = "reconstruct"
 harness = false
+
+[package.metadata.docs.rs]
+features = "use_serde"
 
 [profile.release]
 # EXTREMELY IMPORTANT: REMOVE THIS LINE FOR TRUE RELEASES
