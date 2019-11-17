@@ -99,7 +99,9 @@ impl<'a, E: EntityBase, B: BitSetLike> Iterator for MultiComponentIterMut<'a, E,
     }
 }
 
-
+/// Trait used internally, implemented for every tuple of component.
+///
+/// Do not implement externally.
 pub trait MultiComponent<'a, E: EntityBase> {
     type BitSet: BitSetLike;
 

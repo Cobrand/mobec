@@ -1,4 +1,4 @@
-use rubyec::{
+use mobec::{
     define_entity,
     EntityList,
     EntityBase,
@@ -94,7 +94,7 @@ fn entity_with_ops() {
 
 #[test]
 fn entity_with_component_change() {
-    use rubyec::ChangeComponent;
+    use mobec::ChangeComponent;
 
     let e = Entity::new((CommonProp, AgeProp { age: 5 }))
             .with(ComponentA { alpha: 5.0 })

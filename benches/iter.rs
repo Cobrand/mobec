@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
-use rubyec::{EntityList, EntityBase, define_entity};
+use mobec::{EntityList, EntityBase, define_entity};
 
 #[derive(Debug, Clone, Copy)]
 pub struct P { 

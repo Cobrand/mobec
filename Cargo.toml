@@ -1,5 +1,5 @@
 [package]
-name = "rubyec"
+name = "mobec"
 version = "0.1.0"
 authors = ["Cobrand <cobrandw@gmail.com>"]
 edition = "2018"
@@ -10,9 +10,7 @@ edition = "2018"
 hashbrown = "0.6"
 
 generational-arena = { version = "^0.2.6" }
-
-hibitset = { path = "../hibitset" }
-# hibitset = { git = "https://github.com/Cobrand/hibitset.git", rev = "3ca240bdd42592d5a88a512ae9"}
+hibitset = { version = "^0.6", default-features = false }
 
 tuple_utils = "0.3"
 
@@ -20,8 +18,8 @@ serde = { version = "^1", optional = true, default-features = false}
 
 [dev-dependencies]
 criterion = "0.3"
-serde = { version = "^1", default-features = false, features = ["derive"]}
 bincode = "^1.2"
+serde = { version = "^1", default-features = false, features = ["derive"]}
 
 [features]
 default = []

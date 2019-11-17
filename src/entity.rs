@@ -19,6 +19,71 @@ pub trait Component<E: Sized>: 'static {
 }
 
 /// Macro to create an `Entity` type where this is called.
+///
+/// An entity has two main members:
+///
+/// * Properties, which are mandatory members on all your entities. Example: a position.
+/// * Components, which are optional members taht may be added or removed at runtime. Examples:
+/// a speed, a body, ...
+///
+/// The code below:
+///
+/// ```
+/// define_entity!{
+///     #[derive(Debug)]
+///     pub struct Entity {
+///         // if you have no props, use `props => {}` instead.
+///         props => { a: A }
+///         components => {
+///             b => B,
+///             c => C,
+///         }
+///     }
+/// }
+/// ```
+///
+/// will roughly generate the following code:
+///
+/// ```ignore
+/// #[derive(Debug)]
+/// pub struct Entity {
+///     pub a: A,
+///     pub b: Option<Box<B>>,
+///     pub c: Option<Box<C>>,
+/// }
+///
+/// impl EntityBase for Entity { ... }
+///
+/// impl Component<Entity> for B { ... }
+/// impl Component<Entity> for C { ... }
+/// ```
+///
+/// Even if your components and your entity don't derive Debug, you must have a `#[derive()]`
+/// attribute, even if it is empty. Likewise, even if you have to properties or no components,
+/// the arm must be there, they just have to be empty.
+///
+/// ```rust
+/// # use mobec::define_entity;
+/// define_entity! {
+///     #[derive()]
+///     pub struct Entity {
+///         props => {},
+///         components => {}
+///     }
+/// }
+/// ```
+///
+/// You can derive just as many things as you'd like with a regular struct. Only `Copy` is forbidden
+/// if using components. Example:
+///
+/// ```ignore
+/// define_entity! {
+///     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Serialize, Deserialize)]
+///     pub struct Entity {
+///         props => {},
+///         components => {}
+///     }
+/// }
 #[macro_export]
 macro_rules! define_entity {
     (   #[derive( $( $derivety:path ),* ) ]
@@ -43,7 +108,7 @@ macro_rules! define_entity {
         }
 
         $(
-            impl rubyec::Component<$entityname> for $componenttype {
+            impl mobec::Component<$entityname> for $componenttype {
                 #[inline]
                 fn set(self, entity: &mut $entityname) {
                     entity.$componentname = Some(Box::new(self))
@@ -76,7 +141,7 @@ macro_rules! define_entity {
             }
         )*
 
-        impl rubyec::EntityBase for $entityname {
+        impl mobec::EntityBase for $entityname {
             type CreationParams = ( $( $propt ,)* );
 
             fn new( ( $( $propname ,)* ) : ( $( $propt ,)*) ) -> Self {
@@ -121,8 +186,18 @@ pub enum ChangeComponent<C> {
 }
 
 pub trait EntityBase: Sized + 'static {
+    /// CreationParams are always the properties of an entity.
     type CreationParams;
 
+    /// Creates an entity with the given properties.
+    ///
+    /// Entity::new takes as arguments the properties as tuple in order.
+    ///
+    /// For instance:
+    /// * for no properties, the empty tuple is expected,
+    /// * for a single property A, the param is (A,)
+    /// * for a two properties A and B, the param is (A, B)
+    /// * and so on
     fn new(params: Self::CreationParams) -> Self;
 
     // For a specific entity, go through every component this entity has.
@@ -163,6 +238,22 @@ pub trait EntityBase: Sized + 'static {
     ///
     /// In all cases, the entity is returned. This is very useful if you have a component that is a "computed"
     /// value depending on other components.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let i: i32 = 4;
+    /// let e = e.with_component_change(|e: &mut Entity| -> ChangeComponent<ComponentA> {
+    ///     if i % 2 == 0 {
+    ///         let beta = i + 1;
+    ///         ChangeComponent::Mutate(Box::new(move |a: &mut ComponentA| {
+    ///             a.alpha += beta as f32;
+    ///         }))
+    ///     } else {
+    ///         ChangeComponent::NoChange
+    ///     }
+    /// });
+    /// ```
     fn with_component_change<'a, C: Component<Self>, F: FnOnce(&mut Self) -> ChangeComponent<C>>(mut self, f: F) -> Self {
         match f(&mut self) {
             ChangeComponent::NoChange => self,

@@ -1,6 +1,6 @@
 
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
-use rubyec::{EntityList, EntityBase, define_entity};
+use mobec::{EntityList, EntityBase, define_entity};
 
 use generational_arena::Arena;
 

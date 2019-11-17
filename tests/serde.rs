@@ -4,7 +4,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use rubyec::{
+use mobec::{
     define_entity,
     EntityList,
     EntityBase,

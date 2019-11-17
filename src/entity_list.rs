@@ -11,6 +11,16 @@ use crate::{EntityBase, Component};
 
 pub type EntityId = Index;
 
+/// The struct holding a list/array of entities.
+///
+/// It is backed by a `generational_arena`, and a `hibitset`.
+///
+/// It has the following properties:
+///
+/// * Creations and removals are mostly `O(1)`
+/// * Iteration is linear time (unless you specify the components you're looking for,
+/// where it is at worse the same, at best hundreds of time faster, thanks to hibitset).
+/// * IDs cannot be reused, but their memory space is reusable.
 pub struct EntityList<E: EntityBase> {
     pub (crate) bitsets: HashMap<TypeId, BitSet>,
     pub (crate) entities: Arena<E>,
@@ -26,6 +36,9 @@ impl<E: EntityBase> EntityList<E> {
         l
     }
 
+    /// Creates an `EntityList` from an arena.
+    ///
+    /// The bitsets are all re-generated.
     pub fn from_arena(arena: Arena<E>) -> EntityList<E> {
         let mut l: EntityList<_> = EntityList {
             bitsets: HashMap::new(),
@@ -35,6 +48,9 @@ impl<E: EntityBase> EntityList<E> {
         l
     }
 
+    /// Insert an entity.
+    ///
+    /// Returns the ID of the entity you've just inserted.
     pub fn insert(&mut self, entity: E) -> EntityId {
         let mut type_ids: Vec<TypeId> = Vec::with_capacity(8);
         entity.for_each_active_component(|type_id: TypeId| {
@@ -50,6 +66,9 @@ impl<E: EntityBase> EntityList<E> {
         entity_id
     }
 
+    /// Remove an entity
+    ///
+    /// If the entity wasn't already removed, it is returned as an `Option`.
     pub fn remove(&mut self, id: EntityId) -> Option<E> {
         if let Some(e) = self.entities.remove(id) {
             let generation_less_index = id.into_raw_parts().0;
@@ -65,6 +84,7 @@ impl<E: EntityBase> EntityList<E> {
     }
 
     #[inline]
+    /// Retrives an entity immutably.
     pub fn get(&self, id: EntityId) -> Option<&E> {
         self.entities.get(id)
     }
@@ -75,29 +95,35 @@ impl<E: EntityBase> EntityList<E> {
     /// **WARNING**: You must not add or remove a component to this entity via the mutable
     /// reference, otherwise the bitset cache will be invalid, resulting in this entity
     /// possibly not being iterated over!
+    ///
+    /// To add or remove a component for an entity, use `add_component_for_entity` and
+    /// `remove_component_for_entity`.
     pub fn get_mut(&mut self, id: EntityId) -> Option<&mut E> {
         self.entities.get_mut(id)
     }
 
     #[inline]
+    /// Returns true if the id exists.
     pub fn contains(&self, id: EntityId) -> bool {
         self.entities.contains(id)
     }
 
     #[inline]
+    /// Returns the number of entities in the list.
     pub fn len(&self) -> usize {
         self.entities.len()
     }
 
     /// Initialize bitsets for all components of entity E
     ///
-    /// Capacity is 4096, and is applied for all bitsets.
+    /// Default capacity is 4096, and is applied for all bitsets.
     pub (crate) fn init_bitsets(&mut self, capacity: Option<u32>) {
         E::for_all_components(|type_id: TypeId| {
             self.bitsets.insert(type_id, BitSet::with_capacity(capacity.unwrap_or(4096)));
         });
     }
 
+    /// In case the bitsets are out of date, this function can re-generate them.
     fn regenerate_all_component_bitsets(&mut self) {
         let capacity = self.entities.len();
 
@@ -155,8 +181,8 @@ impl<E: EntityBase> EntityList<E> {
 
     /// Add a component for the given entity.
     ///
-    /// If the entity does not exist anymore, Some(component) is returned.
-    pub fn add_component_for_entity<C: Component<E> + 'static>(&mut self, entity_id: EntityId, component: C) -> Option<C> {
+    /// If the entity does not exist anymore, `Some(component)` is returned.
+    pub fn add_component_for_entity<C: Component<E>>(&mut self, entity_id: EntityId, component: C) -> Option<C> {
         let maybe_component = match self.entities.get_mut(entity_id) {
             Some(e) => {
                 component.set(e);
@@ -180,8 +206,8 @@ impl<E: EntityBase> EntityList<E> {
 
     /// Remove a component for the given entity.
     ///
-    /// If the entity exists and it has the component, Some(component) is returned.
-    pub fn remove_component_for_entity<C: Component<E> + 'static>(&mut self, entity_id: EntityId) -> Option<Box<C>> {
+    /// If the entity exists and it has the component, `Some(component)` is returned.
+    pub fn remove_component_for_entity<C: Component<E>>(&mut self, entity_id: EntityId) -> Option<Box<C>> {
         let maybe_component = self.entities
             .get_mut(entity_id)
             .and_then(C::remove);
