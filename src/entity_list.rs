@@ -1,7 +1,6 @@
 use std::any::TypeId;
 use std::convert::TryInto;
 
-
 use hashbrown::HashMap;
 use hibitset::{BitSet};
 
@@ -238,5 +237,11 @@ impl<E: EntityBase> EntityList<E> {
             }
             should_delete
         })
+    }
+}
+
+impl<E: EntityBase> std::fmt::Debug for EntityList<E> where E: std::fmt::Debug {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.entities.fmt(f)
     }
 }
