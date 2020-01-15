@@ -245,3 +245,12 @@ impl<E: EntityBase> std::fmt::Debug for EntityList<E> where E: std::fmt::Debug {
         self.entities.fmt(f)
     }
 }
+
+impl<E: EntityBase> Clone for EntityList<E> where E: Clone {
+    fn clone(&self) -> EntityList<E> {
+        EntityList {
+            bitsets: self.bitsets.clone(),
+            entities: self.entities.clone(),
+        }
+    }
+}
