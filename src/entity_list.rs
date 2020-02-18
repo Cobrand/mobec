@@ -82,6 +82,22 @@ impl<E: EntityBase> EntityList<E> {
         }
     }
 
+    pub fn refresh(&mut self, id: EntityId) {
+        if let Some(e) = self.entities.get_mut(id) {
+            let generation_less_index = id.into_raw_parts().0;
+            let bitsets = &mut self.bitsets;
+            e.for_each_component(|type_id: TypeId, is_active: bool| {
+                if let Some(bitset) = bitsets.get_mut(&type_id) {
+                    if is_active {
+                        bitset.add(generation_less_index as u32);
+                    } else {
+                        bitset.remove(generation_less_index as u32);
+                    }
+                }
+            });
+        }
+    }
+
     #[inline]
     /// Retrives an entity immutably.
     pub fn get(&self, id: EntityId) -> Option<&E> {

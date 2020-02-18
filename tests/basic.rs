@@ -273,3 +273,58 @@ fn iter_mut() {
     //     v.push(el);
     // }
 }
+
+#[test]
+/// Tests mutable iteration, and also that bitsets can be added before adding entities.
+fn iter_refresh() {
+    let mut entity_list: EntityList<Entity> = EntityList::new();
+
+    let id_1 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 5 }))
+            .with(ComponentA { alpha: 5.0 })
+    );
+    let id_2 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 1 }))
+            .with(ComponentB { beta: 5 })
+    );
+    let id_3 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 6 }))
+            .with(ComponentB { beta: 6 })
+            .with(ComponentA { alpha: 6.0 })
+    );
+    let id_4 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 6 }))
+            .with(ComponentC { ceta: 6 })
+    );
+    let id_5 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 6 }))
+            .with(ComponentB { beta: 6 })
+            .with(ComponentC { ceta: 6 })
+    );
+    let id_6 = entity_list.insert(
+        Entity::new((CommonProp, AgeProp { age: 6 }))
+            .with(ComponentA { alpha: 6.0 })
+            .with(ComponentB { beta: 6 })
+            .with(ComponentC { ceta: 6 })
+    );
+
+    if let Some(e) = entity_list.get_mut(id_6) {
+        e.remove::<ComponentB>();
+    }
+    entity_list.refresh(id_6);
+    if let Some(e) = entity_list.get_mut(id_2) {
+        e.add::<ComponentA>(ComponentA { alpha: 4.0 });
+    }
+    entity_list.refresh(id_2);
+
+    let all_entities: Vec<_> = entity_list.iter_all_mut().map(|(i, _e)| i).collect();
+    let only_comp_a: Vec<_> = entity_list.iter_mut::<(ComponentA,)>().map(|(i, _e)| i).collect();
+    let only_comp_b: Vec<_> = entity_list.iter_mut::<(ComponentB,)>().map(|(i, _e)| i).collect();
+    let only_comp_c: Vec<_> = entity_list.iter_mut::<(ComponentC,)>().map(|(i, _e)| i).collect();
+
+    debug_assert_eq!(all_entities, &[id_1, id_2, id_3, id_4, id_5, id_6]);
+
+    debug_assert_eq!(only_comp_a, &[id_1, id_2, id_3, id_6]);
+    debug_assert_eq!(only_comp_b, &[id_2, id_3, id_5]);
+    debug_assert_eq!(only_comp_c, &[id_4, id_5, id_6]);
+}

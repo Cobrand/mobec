@@ -28,7 +28,7 @@ pub trait Component<E: Sized>: 'static {
 ///
 /// The code below:
 ///
-/// ```
+/// ```ignore
 /// define_entity!{
 ///     #[derive(Debug)]
 ///     pub struct Entity {
@@ -163,6 +163,12 @@ macro_rules! define_entity {
                 )*
             }
 
+            fn for_each_component(&self, mut f: impl FnMut(std::any::TypeId, bool)) {
+                $(
+                    f(std::any::TypeId::of::< $componenttype >(), self.$componentname.is_some());
+                )*
+            }
+
             fn for_all_components(mut f: impl FnMut(std::any::TypeId)) {
                 // todo, replace this by const once TypeId::of is a const fn
                 let components_type_ids: &[std::any::TypeId] = &[$( std::any::TypeId::of::<$componenttype>() ),*];
@@ -202,6 +208,10 @@ pub trait EntityBase: Sized + 'static {
 
     // For a specific entity, go through every component this entity has.
     fn for_each_active_component(&self, f: impl FnMut(TypeId));
+
+    // For a specific entity, go through every component this entity may have. A boolean
+    // is attached to know whether the component is actually there or not.
+    fn for_each_component(&self, f: impl FnMut(TypeId, bool));
 
     // Go through all possible components this kind of entity might have.
     fn for_all_components(f: impl FnMut(TypeId));
@@ -308,5 +318,13 @@ pub trait EntityBase: Sized + 'static {
     /// If the entity had the requested component, it is returned.
     fn remove<C: Component<Self>>(&mut self) -> Option<Box<C>> {
         C::remove(self)
+    }
+
+    #[inline]
+    /// Remove a component from the given entity.
+    ///
+    /// If the entity had the requested component, it is returned.
+    fn add<C: Component<Self>>(&mut self, c: C) {
+        c.set(self);
     }
 }
