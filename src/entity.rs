@@ -141,6 +141,28 @@ macro_rules! define_entity {
             }
         )*
 
+        impl Clone for $entityname {
+            fn clone(&self) -> Self {
+                Self {
+                    $(
+                        $propname: self.$propname.clone(),
+                    )*
+                    $(
+                        $componentname: self.$componentname.clone(),
+                    )*
+                }
+            }
+
+            fn clone_from(&mut self, other: &Self) {
+                $(
+                    self.$propname.clone_from(&other.$propname);
+                )*
+                $(
+                    self.$componentname.clone_from(&other.$componentname);
+                )*
+            }
+        }
+
         impl mobec::EntityBase for $entityname {
             type CreationParams = ( $( $propt ,)* );
 

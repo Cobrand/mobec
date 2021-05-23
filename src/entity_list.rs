@@ -269,4 +269,9 @@ impl<E: EntityBase> Clone for EntityList<E> where E: Clone {
             entities: self.entities.clone(),
         }
     }
+
+    fn clone_from(&mut self, other: &Self) {
+        self.bitsets.clone_from(&other.bitsets);
+        self.entities.clone_from(&other.entities);
+    }
 }

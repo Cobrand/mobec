@@ -1,16 +1,29 @@
 use mobec::{define_entity, EntityList, EntityBase};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct A {
     n: i32
 }
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct B {
     b: String
 }
 #[derive(Debug)]
 pub struct C {
     c: bool
+}
+
+impl Clone for C {
+    fn clone(&self) -> Self {
+        Self {
+            c: self.c
+        }
+    }
+
+    fn clone_from(&mut self, other: &Self) {
+        println!("C::clone_from called");
+        self.c.clone_from(&other.c);
+    }
 }
 
 // define an entity `Entity` with the properties a: A, and the components b: B
@@ -47,6 +60,11 @@ fn main() {
     // add an entity with no components
     let id_2 = entity_list.insert(
         Entity::new((A {n: 1 },))
+    );
+
+    let _id_3 = entity_list.insert(
+        Entity::new((A {n: 5 },))
+            .with(C { c: false })
     );
 
     for (_id, entity) in entity_list.iter_all_mut() {
@@ -90,4 +108,7 @@ fn main() {
     if let Some(_e) = entity_list.remove(id_2) {
         // remove the entity from the list, and retrieve the deleted entity.
     }
+
+    let mut entity_list2 = entity_list.clone();
+    entity_list2.clone_from(&entity_list);
 }
